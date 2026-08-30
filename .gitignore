@@ -1,0 +1,34 @@
+# Visual Studio / VS Code / IDEs
+.vs/
+.idea/
+*.sln
+*.slnx
+*.csproj
+*.unityproj
+*.suo
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.opendb
+*.VC.db
+
+# Carpetas temporales y de compilación de Unity
+Library/
+Temp/
+Obj/
+Build/
+Builds/
+Logs/
+UserSettings/
+MemoryCaptures/
+.vs/
+*.csproj
+*.sln
+*.slnx
+
+# Sistema Operativo
+.DS_Store
+Thumbs.db
