@@ -6,6 +6,11 @@ public class PlayerController : MonoBehaviour
     [Header("Configuracion de Movimiento")]
     [SerializeField] private float velocidadMovimiento = 8f;
     [SerializeField] private float fuerzaSalto = 12f;
+    [SerializeField] private float multiplicadorCorteSalto = 0.5f; // Cuánto frena la subida al soltar el botón
+
+    [Header("Game Feel del Salto")]
+    [SerializeField] private float coyoteTime = 0.15f; // Tiempo de gracia al caer (en segundos)
+    [SerializeField] private float jumpBufferTime = 0.15f; // Tiempo de espera para ejecutar el salto antes de tocar piso
 
     [Header("Deteccion de Suelo y Rampas")]
     [SerializeField] private Transform comprobadorSuelo;
@@ -16,11 +21,15 @@ public class PlayerController : MonoBehaviour
     private Rigidbody2D rb;
     private float inputHorizontal;
     private bool enElSuelo;
-    private bool deseoSaltar;
     private bool mirandoDerecha = true;
 
     private Vector2 normalSuelo;
     private bool enRampa;
+    private bool estabaEnRampa;
+
+    // Timers de Game Feel
+    private float coyoteTimeCounter;
+    private float jumpBufferCounter;
 
     private void Awake()
     {
@@ -29,28 +38,45 @@ public class PlayerController : MonoBehaviour
 
     private void Update()
     {
-        // 1. Leer entrada horizontal
+        // 1. Lectura de Input Horizontal
         inputHorizontal = Input.GetAxisRaw("Horizontal");
 
-        // 2. Capturar intención de salto
+        // 2. Gestion de Timers para el Jump Buffer y Coyote Time
+        if (enElSuelo)
+        {
+            coyoteTimeCounter = coyoteTime; // Carga completa del tiempo de gracia al estar en piso
+        }
+        else
+        {
+            coyoteTimeCounter -= Time.deltaTime; // Se consume mientras está en el aire
+        }
+
         if (Input.GetButtonDown("Jump"))
         {
-            deseoSaltar = true;
+            jumpBufferCounter = jumpBufferTime; // Guarda la intención de saltar por X tiempo
+        }
+        else
+        {
+            jumpBufferCounter -= Time.deltaTime;
+        }
+
+        // 3. Salto Variable (Cortar la altura al soltar la tecla)
+        if (Input.GetButtonUp("Jump") && rb.linearVelocity.y > 0)
+        {
+            rb.linearVelocity = new Vector2(rb.linearVelocity.x, rb.linearVelocity.y * multiplicadorCorteSalto);
+            coyoteTimeCounter = 0f; // Evitar dobles saltos raros
         }
 
         GirarSprite();
     }
 
-    private bool estabaEnRampa;
-
     private void FixedUpdate()
     {
         ComprobarSueloYRampas();
 
-        // 1. Movimiento en Rampa vs Suelo Plano / Aire
-        if (enElSuelo && enRampa && !deseoSaltar)
+        // 1. Movimiento Horizontal & Rampas
+        if (enElSuelo && enRampa && jumpBufferCounter <= 0)
         {
-            // Moverse alineado a la rampa
             Vector2 direccionRampa = Vector2.Perpendicular(normalSuelo).normalized;
             Vector2 velocidadRampa = -inputHorizontal * velocidadMovimiento * direccionRampa;
             rb.linearVelocity = velocidadRampa;
@@ -58,9 +84,7 @@ public class PlayerController : MonoBehaviour
         }
         else
         {
-            // SI VENÍAMOS DE LA RAMPA Y SALIMOS VOLANDO SIN SALTAR:
-            // Cortamos el impulso en Y para que caiga de inmediato sin despegar.
-            if (estabaEnRampa && !enElSuelo && !deseoSaltar && rb.linearVelocity.y > 0)
+            if (estabaEnRampa && !enElSuelo && jumpBufferCounter <= 0 && rb.linearVelocity.y > 0)
             {
                 rb.linearVelocity = new Vector2(inputHorizontal * velocidadMovimiento, 0f);
             }
@@ -75,30 +99,27 @@ public class PlayerController : MonoBehaviour
             }
         }
 
-        // 2. Salto limpio
-        if (deseoSaltar)
+        // 2. Ejecutar Salto con Coyote Time & Jump Buffer
+        if (jumpBufferCounter > 0f && coyoteTimeCounter > 0f)
         {
-            if (enElSuelo)
-            {
-                rb.linearVelocity = new Vector2(rb.linearVelocity.x, fuerzaSalto);
-                estabaEnRampa = false;
-            }
-            deseoSaltar = false;
+            rb.linearVelocity = new Vector2(rb.linearVelocity.x, fuerzaSalto);
+
+            // Consumir los timers para evitar saltos infinitos
+            jumpBufferCounter = 0f;
+            coyoteTimeCounter = 0f;
+            estabaEnRampa = false;
         }
     }
 
     private void ComprobarSueloYRampas()
     {
-        // Detección de suelo por círculo
         enElSuelo = Physics2D.OverlapCircle(comprobadorSuelo.position, radioComprobacion, capaSuelo);
 
-        // Raycast hacia abajo para detectar el ángulo de la rampa
         RaycastHit2D hit = Physics2D.Raycast(comprobadorSuelo.position, Vector2.down, longitudRaycastRampa, capaSuelo);
 
         if (hit)
         {
             normalSuelo = hit.normal;
-            // Si la normal no apunta 100% hacia arriba (Vector2.up), estamos en una rampa
             enRampa = Vector2.Angle(normalSuelo, Vector2.up) > 0.1f;
         }
         else
