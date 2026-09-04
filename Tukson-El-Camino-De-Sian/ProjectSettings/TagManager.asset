@@ -39,7 +39,13 @@ TagManager:
   - 
   m_SortingLayers:
   - name: Fondo
-    uniqueID: 3419419171
+    uniqueID: 1635626519
+    locked: 0
+  - name: Suelo
+    uniqueID: 2865671255
+    locked: 0
+  - name: Jugador
+    uniqueID: 1045556119
     locked: 0
   - name: Default
     uniqueID: 0
